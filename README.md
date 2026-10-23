@@ -17,3 +17,4 @@ you should probably already know how to do this.
 ## Screenshots
 
 ![screenshots/1.png](screenshots/1.png)
+![screenshots/2.png](screenshots/2.png)
