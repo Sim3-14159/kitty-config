@@ -142,7 +142,7 @@ def draw_tab(
             + "'+' ' if num_windows > 1 else ('  ' if title.startswith('tmux ') else '')}"
             # + "{sub.num_windows} {title} 󰉋 {tab.active_wd.rsplit('/')[-1] or '/'}"
             # + "{title.removeprefix('tmux ')}"
-            + "{title[0]+'\033[36m󰉋'+title[1] if len(title:=title.removeprefix('tmux ').split('󰉋')) > 1 else title[0]}"
+            + "{title[0]+'\033[36m󰉋'+title[1] if len(title:=title.removeprefix('tmux ').rsplit('󰉋', 1)) > 1 else title[0]}"
         )  # screen.draw(" ")
         draw_title(new_draw_data, screen, tab, index)
 
