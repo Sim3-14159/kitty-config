@@ -1,67 +1,6 @@
-# from kitty.fast_data_types import Screen
-# from kitty.tab_bar import (
-#     DrawData,
-#     TabBarData,
-#     ExtraData,
-#     draw_tab_with_powerline,
-#     draw_title,
-# )
-#
-#
-# def draw_tab(
-#     draw_data: DrawData,
-#     screen: Screen,
-#     tab: TabBarData,
-#     before: int,
-#     max_title_length: int,
-#     index: int,
-#     is_last: bool,
-#     extra_data: ExtraData,
-# ) -> int:
-#     """
-#     Kitty's DrawData is defined here:
-#     https://github.com/kovidgoyal/kitty/blob/master/kitty/tab_bar.py#L58
-#     """
-#
-#     layout_icon = ""
-#     if tab.layout_name == "tall":
-#         layout_icon = " "
-#     elif tab.layout_name == "vertical":
-#         layout_icon = " "
-#     elif tab.layout_name == "horizontal":
-#         layout_icon = " "
-#     elif tab.layout_name == "stack":
-#         layout_icon = " "
-#     elif tab.layout_name == "fat":
-#         layout_icon = " "
-#     elif tab.layout_name == "grid":
-#         layout_icon = " "
-#     elif tab.layout_name == "splits":
-#         layout_icon = " "
-#
-#     new_draw_data = draw_data._replace(
-#         title_template="{fmt.fg.red}{bell_symbol}{activity_symbol}{fmt.fg.tab}"
-#         # + "{sup.index}󰘳  "
-#         # + layout_icon
-#         # + "{sub.num_windows}"
-#         # + " "
-#         # + "󰉋 {tab.active_wd.rsplit('/', 1)[-1] or '/'}"
-#         # + " "
-#         # + " {tab.active_exe}"
-#         # + " {title}"
-#         # active_title_template inherits title_template if nil
-#         + "{sup.num_windows + '"
-#         + layout_icon
-#         + "'+' ' if num_windows > 1 else ('  ' if title.startswith('tmux ') else '')}"
-#         # + "{sub.num_windows} {title} 󰉋 {tab.active_wd.rsplit('/')[-1] or '/'}"
-#         + "{title.removeprefix('tmux ')}"
-#     )
-#
-#     return draw_tab_with_powerline(
-#         new_draw_data, screen, tab, before, max_title_length, index, is_last, extra_data
-#     )
-
 # ruff: ignore[I001]
+import time
+import os
 from kitty.fast_data_types import Screen, add_timer  # pyright: ignore[reportMissingImports]
 from kitty.boss import get_boss  # pyright: ignore[reportMissingImports]
 from kitty.tab_bar import (  # pyright: ignore[reportMissingImports]
@@ -75,12 +14,17 @@ from kitty.tab_bar import (  # pyright: ignore[reportMissingImports]
 )
 from kitty.utils import color_as_int  # pyright: ignore[reportMissingImports]
 
-import time
+
+CPU_CORES = os.cpu_count() or 1
 
 
 def _draw_right_status(screen: Screen) -> int:
     # Text or info you want to display on the far right
-    right_text = f" {time.strftime(' %H:%M')} "
+    load1minute = os.getloadavg()[0]
+    approxCPUpercentage = int(load1minute / CPU_CORES * 100)
+
+    right_text = f" ~{approxCPUpercentage}% {time.strftime(' %-I:%M')} "
+
     right_length = len(right_text)
 
     # Calculate spaces needed to push text to the far edge
@@ -94,8 +38,15 @@ def _draw_right_status(screen: Screen) -> int:
 
 def _redraw_tab_bar(_timer_id: int | None) -> None:
     boss = get_boss()
-    if boss is not None:
-        boss.mark_tab_bar_dirty()
+    if boss is None:
+        return
+    tm = boss.active_tab_manager
+    if tm is not None:
+        tm.mark_tab_bar_dirty()
+        # Force Kitty's main loop to repaint the OS window immediately
+        w = tm.active_window
+        if w is not None:
+            boss.child_monitor.wakeup()
 
 
 timer_id = None
@@ -114,7 +65,7 @@ def draw_tab(
     global timer_id
 
     if timer_id is None:
-        timer_id = add_timer(_redraw_tab_bar, 1.0, True)
+        timer_id = add_timer(_redraw_tab_bar, 2.0, True)  # Redraw tab bar every 2 secs
 
     orig_fg = screen.cursor.fg
     orig_bg = screen.cursor.bg
@@ -159,12 +110,6 @@ def draw_tab(
         draw_sep(left_sep)
         new_draw_data = draw_data._replace(
             title_template="{fmt.fg.red}{bell_symbol}{activity_symbol}{fmt.fg.tab}"
-            # + "{sup.index}󰘳  "
-            # + layout_icon
-            # + "{sub.num_windows}"
-            # + " "
-            # + "󰉋 {tab.active_wd.rsplit('/', 1)[-1] or '/'}"
-            # + " "
             # + " {tab.active_exe}"
             # + " {title}"
             # active_title_template inherits title_template if nil
