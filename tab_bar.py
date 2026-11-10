@@ -61,17 +61,44 @@
 #         new_draw_data, screen, tab, before, max_title_length, index, is_last, extra_data
 #     )
 
-from kitty.fast_data_types import Screen
-from kitty.tab_bar import (
+# ruff: ignore[I001]
+from kitty.fast_data_types import Screen, add_timer  # pyright: ignore[reportMissingImports]
+from kitty.boss import get_boss  # pyright: ignore[reportMissingImports]
+from kitty.tab_bar import (  # pyright: ignore[reportMissingImports]
     DrawData,
     ExtraData,
     TabBarData,
-    Formatter,
+    # Formatter,
     draw_title,
     as_rgb,
-    draw_attributed_string,
+    # draw_attributed_string,
 )
-from kitty.utils import color_as_int
+from kitty.utils import color_as_int  # pyright: ignore[reportMissingImports]
+
+import time
+
+
+def _draw_right_status(screen: Screen) -> int:
+    # Text or info you want to display on the far right
+    right_text = f" {time.strftime(' %H:%M')} "
+    right_length = len(right_text)
+
+    # Calculate spaces needed to push text to the far edge
+    draw_spaces = screen.columns - screen.cursor.x - right_length
+    if draw_spaces > 0:
+        screen.draw(" " * draw_spaces)
+
+    screen.draw(right_text)
+    return screen.cursor.x
+
+
+def _redraw_tab_bar(_timer_id: int | None) -> None:
+    boss = get_boss()
+    if boss is not None:
+        boss.mark_tab_bar_dirty()
+
+
+timer_id = None
 
 
 def draw_tab(
@@ -84,6 +111,10 @@ def draw_tab(
     is_last: bool,
     extra_data: ExtraData,
 ) -> int:
+    global timer_id
+
+    if timer_id is None:
+        timer_id = add_timer(_redraw_tab_bar, 1.0, True)
 
     orig_fg = screen.cursor.fg
     orig_bg = screen.cursor.bg
@@ -137,17 +168,19 @@ def draw_tab(
             # + " {tab.active_exe}"
             # + " {title}"
             # active_title_template inherits title_template if nil
+            + "{fmt.fg.orange}"
             + "{sup.num_windows + '"
             + layout_icon
             + "'+' ' if num_windows > 1 else ('  ' if title.startswith('tmux ') else '')}"
             # + "{sub.num_windows} {title} 󰉋 {tab.active_wd.rsplit('/')[-1] or '/'}"
             # + "{title.removeprefix('tmux ')}"
+            + "{fmt.fg.tab}"
             + "{title[0]+'\033[36m󰉋'+title[1] if len(title:=title.removeprefix('tmux ').rsplit('󰉋', 1)) > 1 else title[0]}"
         )  # screen.draw(" ")
         draw_title(new_draw_data, screen, tab, index)
 
         extra = screen.cursor.x - before - max_title_length
-        print(f"extra:{extra}")
+        # print(f"extra:{extra}")
         if extra >= 0:
             screen.cursor.x -= extra + 3
             screen.draw("…")
@@ -157,5 +190,11 @@ def draw_tab(
         # screen.draw(" ")
         draw_sep(right_sep)
         draw_sep(" ")
+
+        if is_last:
+            screen.cursor.italic = False
+            screen.cursor.bold = False
+            screen.cursor.bg = as_rgb(color_as_int(draw_data.default_bg))
+            _draw_right_status(screen)
 
     return screen.cursor.x
