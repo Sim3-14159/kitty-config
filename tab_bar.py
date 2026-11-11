@@ -109,7 +109,7 @@ def draw_tab(
 
         draw_sep(left_sep)
         new_draw_data = draw_data._replace(
-            title_template="{fmt.fg.red}{bell_symbol}{activity_symbol}{fmt.fg.tab}"
+            title_template="{fmt.fg.yellow}{bell_symbol}{fmt.fg.tab}"
             # + " {tab.active_exe}"
             # + " {title}"
             # active_title_template inherits title_template if nil
@@ -120,7 +120,8 @@ def draw_tab(
             # + "{sub.num_windows} {title} 󰉋 {tab.active_wd.rsplit('/')[-1] or '/'}"
             # + "{title.removeprefix('tmux ')}"
             + "{fmt.fg.tab}"
-            + "{title[0]+'\033[36m󰉋'+title[1] if len(title:=title.removeprefix('tmux ').rsplit('󰉋', 1)) > 1 else title[0]}"
+            + "{'\033[4m' if activity_symbol else ''}{title[0]+'\033[36m󰉋'+title[1] if len(title:=title.removeprefix('tmux ').rsplit('󰉋', 1)) > 1 else title[0]}"
+            + "\033[24m"  # no underline
         )  # screen.draw(" ")
         draw_title(new_draw_data, screen, tab, index)
 
